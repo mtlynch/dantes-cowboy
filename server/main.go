@@ -31,9 +31,7 @@ const (
 )
 
 const (
-	// A-Z and 0-9, four digits means this many codes
-	MaxCodes = 36 * 36 * 36 * 36
-	MaxTime  = 10 * 60 * 1000 // in seconds
+	MaxTime = 10 * 60 * 1000 // in seconds
 )
 
 type User struct {
@@ -196,7 +194,7 @@ func checkout(w http.ResponseWriter, req *http.Request) {
 	var newCodeUser codes.UserCode
 	found := false
 	for i := 0; i < 1000; i++ {
-		codeInt := rand.Intn(MaxCodes)
+		codeInt := rand.Intn(int(codes.MaxUserCode))
 		newCodeUser = codes.UserCode(codeInt)
 		var tmp User
 		r := db.Where("Code = ?", codeInt).Limit(1).Find(&tmp)

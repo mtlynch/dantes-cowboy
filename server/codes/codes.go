@@ -4,7 +4,30 @@ import (
 	"fmt"
 )
 
+const (
+	CodeStringLength = 4
+	MinUserCode      = UserCode(0)
+	// A-Z and 0-9, four digits means this many codes
+	MaxUserCode = UserCode(36 * 36 * 36 * 36)
+)
+
 type UserCode int
+
+type ErrInvalidCodeStringLength struct {
+	Input string
+}
+
+func (e ErrInvalidCodeStringLength) Error() string {
+	return fmt.Sprintf("string to deconvert is not of length %d: %s", CodeStringLength, e.Input)
+}
+
+type ErrInvalidCodeStringCharacter struct {
+	Input string
+}
+
+func (e ErrInvalidCodeStringCharacter) Error() string {
+	return fmt.Sprintf("failed to find place's number %s", e.Input)
+}
 
 func intPow(n, m int) int {
 	if m == 0 {
@@ -20,12 +43,12 @@ func intPow(n, m int) int {
 var numberToChar = [...]rune{'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'}
 
 func CodeToString(code UserCode) (string, error) {
-	toReturn := [4]rune{'A', 'A', 'A', 'A'}
+	toReturn := [CodeStringLength]rune{'A', 'A', 'A', 'A'}
 
 	value := int(code)
 
-	for place := 3; place >= 0; place-- {
-		index := 3 - place
+	for place := CodeStringLength - 1; place >= 0; place-- {
+		index := CodeStringLength - 1 - place
 		currentPlaceValue := value / intPow(36, place)
 		value -= currentPlaceValue * intPow(36, place)
 		if currentPlaceValue >= len(numberToChar) {
@@ -39,12 +62,12 @@ func CodeToString(code UserCode) (string, error) {
 
 func ParseUserCode(s string) (UserCode, error) {
 	asRune := []rune(s)
-	if len(asRune) != 4 {
-		return 0, fmt.Errorf("String to deconvert is not of length 4: %s", s)
+	if len(asRune) != CodeStringLength {
+		return 0, ErrInvalidCodeStringLength{Input: s}
 	}
 	var toReturn UserCode = 0
-	for place := 3; place >= 0; place-- {
-		index := 3 - place
+	for place := CodeStringLength - 1; place >= 0; place-- {
+		index := CodeStringLength - 1 - place
 		curDigitNum := 0
 		found := false
 		for i, letter := range numberToChar {
@@ -54,7 +77,7 @@ func ParseUserCode(s string) (UserCode, error) {
 			}
 		}
 		if !found {
-			return 0, fmt.Errorf("Failed to find place's number %s", s)
+			return 0, ErrInvalidCodeStringCharacter{Input: s}
 		}
 		toReturn += UserCode(curDigitNum * intPow(36, place))
 	}
