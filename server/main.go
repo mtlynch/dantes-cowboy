@@ -133,10 +133,7 @@ func handleEvent(event stripe.Event) error {
 		if !found {
 			return fmt.Errorf("Error Failed to find user in database to fulfill: very bad! ID: " + session.ID)
 		} else {
-			userString, err := codes.CodeToString(toFulfill.Code)
-			if err != nil {
-				return fmt.Errorf("Error strange thing, saved user's code was unable to be converted to a string %s", err)
-			}
+			userString := toFulfill.Code.String()
 			log.Printf("Fulfilling user with code %s number %d\n", userString, toFulfill.Code)
 			if toFulfill.IsFulfilled {
 				log.Printf("User with code %s is already fulfilled, strange\n", userString)
@@ -190,22 +187,13 @@ func checkout(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// generate a code
-	var newCode string
 	var newCodeUser codes.UserCode
 	found := false
 	for i := 0; i < 1000; i++ {
-		codeInt := rand.Intn(int(codes.MaxUserCode))
-		newCodeUser = codes.UserCode(codeInt)
+		newCodeUser = codes.Random()
 		var tmp User
-		r := db.Where("Code = ?", codeInt).Limit(1).Find(&tmp)
+		r := db.Where("Code = ?", newCodeUser.Int()).Limit(1).Find(&tmp)
 		if r.RowsAffected == 0 {
-			var err error
-			newCode, err = codes.CodeToString(newCodeUser)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				log.Fatalf("Failed to generate code from random number: %s", err)
-				return
-			}
 			found = true
 			break
 		}
@@ -216,7 +204,7 @@ func checkout(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	customMessage := fmt.Sprintf("**IMPORTANT** Your Day Pass Code is %s", newCode)
+	customMessage := fmt.Sprintf("**IMPORTANT** Your Day Pass Code is %s", newCodeUser.String())
 	redirecting := "https://google.com"
 	if len(checkoutRedirectTo) > 0 {
 		redirecting = checkoutRedirectTo
@@ -240,7 +228,7 @@ func checkout(w http.ResponseWriter, req *http.Request) {
 		log.Printf("session.New: %v", err)
 	}
 
-	log.Printf("Creating user code %s code integer %d with checkout session ID %s\n", newCode, newCodeUser, s.ID)
+	log.Printf("Creating user code %s code integer %d with checkout session ID %s\n", newCodeUser.String(), newCodeUser.Int(), s.ID)
 	result := db.Create(&User{
 		Code:              newCodeUser,
 		BoughtTime:        currentTime(),
@@ -253,7 +241,7 @@ func checkout(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Failed to write to database: %s", result.Error)
 	} else {
 		log.Printf("SUccessfully created usercode!\n")
-		fmt.Fprintf(w, "%s|%s", newCode, s.URL)
+		fmt.Fprintf(w, "%s|%s", newCodeUser.String(), s.URL)
 	}
 }
 
@@ -312,7 +300,7 @@ func completion(w http.ResponseWriter, req *http.Request) {
 				}
 			} else {
 				var thisUser User
-				thisUserCode, err := codes.ParseUserCode(userToken)
+				thisUserCode, err := codes.FromString(userToken)
 				if err != nil {
 					logStr += fmt.Sprintf("Error: Failed to parse user token %s\n", userToken)
 					rejected = true
